@@ -1,0 +1,62 @@
+# The @argszero/dsh-tool-output-budget bundle patch: mount and go.
+#
+# A tool result enters the model's history exactly as the tool printed it, and
+# stays there for every later request of the session. One `bash` command that
+# prints a 3 MB build log, one read of a generated bundle, one recursive grep —
+# each is replayed on every turn, and every subagent's turns replay it too.
+# Discussion #9583 is that measurement: a 53:1 ratio of context replayed to
+# output produced across a 21-subagent run, 108,842,852 tokens, an average of
+# 36,454 tokens replayed per request against 686 produced.
+#
+# The harness does ship a reducer for exactly this content —
+# `@deepseek-ai/dsh-compaction-tool-result-pruner` — but it is gated on
+# compaction pressure ("below-pressure conversations remain unchanged"). The
+# unbounded window is therefore *before* the pressure: twenty oversized results
+# replayed for twenty turns, in the interval during which the session is nowhere
+# near its context limit.
+#
+# This plugin is that reducer run at injection time. It watches each `tool/result`
+# on `session/event` and replaces the over-budget ones with their head, a marker
+# and their tail. The write is the pair the shipped producers use:
+#
+#   compaction/prune     shadowedRange, shadowedSeqs, shadowedTokenCount
+#   tool/result          the same result with reduced content
+#                        surfaceOp: { op: 'replace', startSeq, endSeq }
+#                        sourceEventSeqs: [pruneSeq, seq]
+#
+# so the durable log keeps the tool's real output — for the user reading the
+# conversation no less than for a replay — and only the model-visible surface
+# changes. The two appends are synchronous and adjacent because the token meter's
+# surface fold reads them that way: a shadow-price event arms a claim for the very
+# next event, and a replacement consumes it.
+#
+# The append is deferred, and it has to be: `Session.append` refuses a reentrant
+# append, and a `session/event` listener runs inside that publication. The queue
+# is drained from a microtask (which runs as soon as the appending stack unwinds)
+# and again at `agent/pre-step`, so "committed before the request that could carry
+# it" is a property of the code rather than of scheduling luck.
+#
+# Optional config:
+#
+#   - set:
+#       - id: tool-output-budget
+#         config:
+#           # Text (Unicode code points) above which one result is reduced.
+#           # Deliberately looser than the shipped pruner's 8 KiB: this runs on
+#           # every ordinary request, not only under pressure.
+#           thresholdChars: 16384
+#           # Text kept verbatim at the start of the result: the path, the command,
+#           # the exit status, the first error.
+#           headChars: 8192
+#           # Text kept verbatim at the end: the failing count, the summary line.
+#           tailChars: 2048
+#           # Tools whose results are never bounded, e.g. ['read_image'].
+#           exemptTools: []
+#
+# Nothing here summarizes, calls a model, refuses a tool call, or rewrites a
+# result as it is recorded: the plugin reads the events it is handed and appends
+# to the session the result already belongs to.
+
+- insert:
+    - id: tool-output-budget
+      name: '@argszero/dsh-tool-output-budget'

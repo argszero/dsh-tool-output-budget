@@ -1,0 +1,82 @@
+{
+  "name": "@argszero/dsh-tool-output-budget",
+  "description": "A tool result enters the model's history exactly as the tool printed it, and stays there for every later request of the session: one 3 MB build log, one read of a generated bundle, one recursive grep becomes context replayed on every turn of every subagent. Discussion #9583 measured the cost — a 53:1 ratio of context replayed to output produced across a 21-subagent run, 108,842,852 tokens and CNY 46.94, an average of 36,454 tokens per request against 686 produced. The harness does ship a reducer for this content, @deepseek-ai/dsh-compaction-tool-result-pruner, but it is gated on compaction pressure (\"below-pressure conversations remain unchanged\"): the gap is exactly the interval before any pressure exists, when twenty oversized results are replayed for twenty turns. This plugin is that reducer run at injection time. It watches each tool/result on session/event and, after the appending call stack unwinds (Session.append refuses a reentrant append), replaces the over-budget ones with their head, a marker and their tail, using the same durable pair the shipped producers use — a compaction/prune shadow price followed by a tool/result carrying surfaceOp replace — so the log keeps the tool's real output and only the model-visible surface changes. Defaults are deliberately looser than the pruner's (16 KiB, not 8 KiB) because this runs on every ordinary request rather than only under pressure; every tool is in scope with exemptTools as the escape hatch. Runs as a required dependency on token-meter and nothing else. Zero runtime dependencies beyond the harness packages it declares.",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/argszero/dsh-tool-output-budget.git"
+  },
+  "homepage": "https://github.com/argszero/dsh-tool-output-budget#readme",
+  "bugs": {
+    "url": "https://github.com/argszero/dsh-tool-output-budget/issues"
+  },
+  "keywords": [
+    "cordis",
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "tool-output",
+    "tool-result",
+    "context-budget",
+    "token-budget",
+    "session-surface",
+    "compaction-prune",
+    "agent-pre-step"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2 || ~4.0.5-alpha.1",
+    "@deepseek-ai/dsh-agent": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.2.1-alpha.2 || >=0.2.1-alpha.2 <0.3.0",
+    "@deepseek-ai/dsh-compaction": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.2.1-alpha.2 || >=0.2.1-alpha.2 <0.3.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.2.1-alpha.2 || >=0.2.1-alpha.2 <0.3.0",
+    "@deepseek-ai/dsh-session": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.2.1-alpha.2 || >=0.2.1-alpha.2 <0.3.0",
+    "@deepseek-ai/dsh-token-meter": ">=0.1.7-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.2.1-alpha.2 || >=0.2.1-alpha.2 <0.3.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5-alpha.1",
+    "@deepseek-ai/dsh-agent": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-compaction": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-session": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-session-projection": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-token-meter": "0.2.1-alpha.2",
+    "@types/node": "^24.19.1",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "pretest": "tsc",
+    "test": "node --test \"test/*.spec.mjs\"",
+    "prepublishOnly": "tsc",
+    "test:inject": "node scripts/inject-defects.mjs",
+    "probe:lines": "node scripts/probe-lines.mjs"
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  }
+}
