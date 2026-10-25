@@ -117,8 +117,10 @@ had already removed.
 ## Install
 
 ```sh
-npm install @argszero/dsh-tool-output-budget
+dsh plugin --profile <profile> add github:argszero/dsh-tool-output-budget
 ```
+
+The git spec installs the tree this README describes; `npm install` on its own never attaches a plugin to a profile — `dsh plugin add` is what writes the row that makes it load.
 
 Then mount it from your profile's bundle patch (`dsh.bundle.patch`):
 
