@@ -1,0 +1,53 @@
+/**
+ * Configuration resolution for the injection-time tool-output budget.
+ *
+ * The vocabulary deliberately matches
+ * `@deepseek-ai/dsh-compaction-tool-result-pruner` — threshold/head/tail in
+ * Unicode code points — because this plugin performs the same replacement at a
+ * different moment, and an operator who has tuned one has already tuned the
+ * other. The two defaults differ on purpose: the shipped pruner runs only once
+ * pressure is already a problem, so it may be aggressive, while this one runs on
+ * every ordinary request and therefore only removes output no model can use.
+ *
+ * The marker is NOT the pruner's: two producers write two different markers, so
+ * a trimmed result says which one trimmed it.
+ *
+ * @module @argszero/dsh-tool-output-budget/config
+ */
+import type { Config, ResolvedConfig } from './types.ts';
+/**
+ * Fixed marker substituted for every removed middle span.
+ *
+ * Distinct from the compaction pruner's `[... tool result middle pruned ...]`
+ * because a reader — and a test — must be able to tell which producer made a
+ * given replacement, and because the two producers act under different rules.
+ */
+export declare const TRIM_MARKER = "\n\n[... tool output over budget: middle removed from the model view ...]\n\n";
+/**
+ * Defaults for a plugin that is unconditional rather than pressure-gated.
+ *
+ * 16 KiB of text (roughly four thousand tokens) is already an oversized single
+ * result, and 8 KiB + marker + 2 KiB is what the model keeps. The shipped pruner
+ * defaults to half that because it only ever runs when the session is already
+ * in trouble.
+ */
+export declare const DEFAULTS: ResolvedConfig;
+/**
+ * Count Unicode code points without splitting surrogate pairs.
+ * @param text - text to measure.
+ * @returns the Unicode code-point count.
+ */
+export declare function codePointLength(text: string): number;
+/**
+ * Resolve, validate and detach the trimming budgets.
+ *
+ * The refusal of an unknown key is deliberate: a misspelled knob that mounts and
+ * does nothing is how an operator believes a budget is in force when it is not.
+ * @param config - raw plugin configuration, possibly empty.
+ * @returns a detached, frozen configuration.
+ * @throws {Error} when a budget is not a usable integer, when the emitted span
+ *   would not be smaller than the threshold it replaces, or when a key is
+ *   unknown.
+ */
+export declare function resolveConfig(config?: Config): ResolvedConfig;
+//# sourceMappingURL=config.d.ts.map

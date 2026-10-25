@@ -74,8 +74,7 @@
     "test": "node --test \"test/*.spec.mjs\"",
     "prepublishOnly": "tsc",
     "test:inject": "node scripts/inject-defects.mjs",
-    "probe:lines": "node scripts/probe-lines.mjs",
-    "prepare": "tsc"
+    "probe:lines": "node scripts/probe-lines.mjs"
   },
   "engines": {
     "node": "^22.19 || >=24"
